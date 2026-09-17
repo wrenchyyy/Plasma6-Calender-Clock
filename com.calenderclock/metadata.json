@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "hello@wrenchy.dev",
+                "Name": "Wrenchy"
+            }
+        ],
+        "Category": "Utilities",
+        "Description": "Panel clock with a month/year calendar popup.",
+        "Icon": "/icons/calenderclock.svg",
+        "Id": "com.calenderclock",
+        "License": "MIT",
+        "Name": "Calender Clock",
+        "Version": "1.0",
+        "Website": "https://github.com/wrenchyyy/Plasma6-Calender-Clock"
+    }
+}
