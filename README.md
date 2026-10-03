@@ -1,5 +1,7 @@
 # Calender Clock — Plasma 6 Widget
 
+[![KDE Store](https://img.shields.io/badge/KDE_Store-download-blue)](https://store.kde.org/p/2371591/)
+
 A minimalist clock widget for the KDE Plasma 6 panel.
 It shows the weekday, date and time in your panel, with a month/year calendar
 popup.
@@ -31,7 +33,8 @@ settings and turn on **Use Nerd Font glyphs**.
 
 ## Install
 
-- **KDE Store:** grab the `.plasmoid` from the store listing, then
+- **KDE Store:** grab the `.plasmoid` from
+  [store.kde.org/p/2371591](https://store.kde.org/p/2371591/), then
   right-click the panel → **Edit Panel** → **Add Widgets** → **Get New
   Widgets** → **Install from file…**
 - **From source:**
