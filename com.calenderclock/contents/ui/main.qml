@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
 
@@ -10,34 +12,61 @@ PlasmoidItem {
     id: root
 
     readonly property string panelFontFamily: Plasmoid.configuration.panelFontFamily || "monospace"
-    readonly property int panelFontSize: Plasmoid.configuration.panelFontSize || -1
+    readonly property int panelFontSize: Plasmoid.configuration.panelFontSize > 0
+                                         ? Plasmoid.configuration.panelFontSize
+                                         : Kirigami.Theme.defaultFont.pointSize
+    readonly property bool nerdFontIcons: Plasmoid.configuration.nerdFontIcons
+    readonly property bool themeColors: Plasmoid.configuration.useThemeColors
 
-    property color monthColor: "#a6adc8"
-    property color weekdayColor: "#a6adc8"
-    property color todayColor: "#a6adc8"
-    property color dayColor: "#555869"
+    readonly property color monthColor: themeColors ? Kirigami.Theme.textColor : "#a6adc8"
+    readonly property color weekdayColor: themeColors ? Kirigami.Theme.textColor : "#a6adc8"
+    readonly property color dayColor: themeColors ? Kirigami.Theme.textColor : "#555869"
+    readonly property color otherDayColor: themeColors ? Kirigami.Theme.disabledTextColor
+                                                       : Qt.rgba(dayColor.r, dayColor.g, dayColor.b, 0.35)
+    readonly property color todayColor: themeColors ? Kirigami.Theme.highlightedTextColor : "#a6adc8"
+    readonly property color todayBackground: themeColors ? Kirigami.Theme.highlightColor
+                                                         : Qt.rgba(0.65, 0.68, 0.78, 0.18)
+    readonly property color todayBorderColor: themeColors ? Kirigami.Theme.highlightColor : "#a6adc8"
 
     property date now: new Date()
-    property int shownYear: now.getFullYear()
-    property int shownMonth: now.getMonth()
+    readonly property int todayYear: now.getFullYear()
+    readonly property int todayMonth: now.getMonth()
+    readonly property int todayDay: now.getDate()
+    property int shownYear: todayYear
+    property int shownMonth: todayMonth
     property bool yearMode: false
 
-    Timer {
-        interval: 5000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            root.now = new Date();
-            if (!root.expanded) {
-                root.shownYear = root.now.getFullYear();
-                root.shownMonth = root.now.getMonth();
-            }
+    // 0 = Sunday, like Date.getDay()
+    readonly property int firstDayOfWeek: Qt.locale().firstDayOfWeek
+
+    function refresh() {
+        root.now = new Date();
+        if (!root.expanded) {
+            root.shownYear = root.todayYear;
+            root.shownMonth = root.todayMonth;
         }
     }
 
-    function clockText() {
-        return Qt.formatDateTime(root.now, "dddd  \uf272 dd MMMM  \uf43a HH:mm");
+    function msToNextMinute() {
+        return 60000 - Date.now() % 60000;
+    }
+
+    // Ticks on the minute boundary instead of polling.
+    Timer {
+        id: minuteTimer
+        interval: root.msToNextMinute()
+        running: true
+        onTriggered: {
+            root.refresh();
+            minuteTimer.interval = root.msToNextMinute();
+            minuteTimer.restart();
+        }
+    }
+
+    onExpandedChanged: root.refresh()
+
+    function timeText() {
+        return Qt.formatDateTime(root.now, "HH:mm");
     }
 
     function monthName(y, m) {
@@ -55,8 +84,8 @@ PlasmoidItem {
     }
 
     function goToday() {
-        root.shownYear = root.now.getFullYear();
-        root.shownMonth = root.now.getMonth();
+        root.shownYear = root.todayYear;
+        root.shownMonth = root.todayMonth;
         root.yearMode = false;
     }
 
@@ -67,11 +96,10 @@ PlasmoidItem {
     function monthCells() {
         var y = root.shownYear;
         var m = root.shownMonth;
-        var first = (new Date(y, m, 1).getDay() + 6) % 7;
+        var first = (new Date(y, m, 1).getDay() - root.firstDayOfWeek + 7) % 7;
         var daysInMonth = new Date(y, m + 1, 0).getDate();
         var daysInPrev = new Date(y, m, 0).getDate();
-        var t = root.now;
-        var ty = t.getFullYear(), tm = t.getMonth(), td = t.getDate();
+        var thisMonth = y === root.todayYear && m === root.todayMonth;
         var cells = [];
         for (var i = 0; i < 42; i++) {
             var dayNum, inMonth;
@@ -88,28 +116,26 @@ PlasmoidItem {
             cells.push({
                 "day": dayNum,
                 "inMonth": inMonth,
-                "isToday": inMonth && y === ty && m === tm && dayNum === td
+                "isToday": inMonth && thisMonth && dayNum === root.todayDay
             });
         }
         return cells;
     }
 
     preferredRepresentation: compactRepresentation
-    activationTogglesExpanded: false
 
-    toolTipMainText: clockText()
-    toolTipSubText: monthName(root.shownYear, root.shownMonth) + " " + root.shownYear
-        + "\nLeft-click: open calendar • Middle-click: today"
-        + "\nDouble-click or press-and-hold: open calendar"
+    toolTipMainText: Qt.formatDateTime(root.now, "dddd dd MMMM  HH:mm")
+    toolTipSubText: root.monthName(root.shownYear, root.shownMonth) + " " + root.shownYear
+        + "\n" + i18n("Left-click: open calendar • Middle-click: today")
 
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
-            text: "Today"
+            text: i18n("Today")
             icon.name: "view-calendar-day"
             onTriggered: root.goToday()
         },
         PlasmaCore.Action {
-            text: root.yearMode ? "Show month" : "Show year"
+            text: root.yearMode ? i18n("Show month") : i18n("Show year")
             icon.name: "view-calendar"
             onTriggered: root.toggleMode()
         }
@@ -117,183 +143,250 @@ PlasmoidItem {
 
     compactRepresentation: MouseArea {
         id: compactMouse
+
+        // A vertical panel is too narrow for the full line: show the time only, on two lines.
+        readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+        readonly property bool showThemeIcons: !root.nerdFontIcons && !vertical
+        readonly property int iconSize: Math.round(timeLabel.contentHeight * 0.8)
+        property bool wasExpanded: false
+
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-        Layout.minimumWidth: clockLabel.implicitWidth + Kirigami.Units.smallSpacing * 2
-        Layout.minimumHeight: clockLabel.implicitHeight
-        Layout.preferredWidth: clockLabel.implicitWidth + Kirigami.Units.smallSpacing * 2
-        Layout.preferredHeight: clockLabel.implicitHeight
+        Layout.minimumWidth: clockRow.implicitWidth + Kirigami.Units.smallSpacing * 2
+        Layout.minimumHeight: clockRow.implicitHeight
+        Layout.preferredWidth: clockRow.implicitWidth + Kirigami.Units.smallSpacing * 2
+        Layout.preferredHeight: clockRow.implicitHeight
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
-        PlasmaComponents.Label {
-            id: clockLabel
-            anchors.centerIn: parent
-            text: root.clockText()
-            font.family: root.panelFontFamily
-            font.pointSize: root.panelFontSize
-            font.bold: true
-            // needs a Nerd Font for the icons
-        }
-
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.LeftButton) {
-                root.expanded = !root.expanded;
-            } else if (mouse.button === Qt.MiddleButton) {
-                root.goToday();
-                root.expanded = true;
-            }
-            mouse.accepted = true;
-        }
-        onDoubleClicked: function(mouse) {
-            root.expanded = !root.expanded;
-            mouse.accepted = true;
-        }
-        onPressAndHold: root.expanded = !root.expanded
-    }
-
-    fullRepresentation: ColumnLayout {
-        id: popup
-        Layout.minimumWidth: Kirigami.Units.gridUnit * 14
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 12
-        Layout.preferredWidth: Kirigami.Units.gridUnit * 16
-        spacing: Kirigami.Units.smallSpacing
+        Accessible.name: root.toolTipMainText
+        Accessible.role: Accessible.Button
+        Accessible.onPressAction: root.expanded = !root.expanded
 
         RowLayout {
-            Layout.fillWidth: true
-            PlasmaComponents.ToolButton {
-                text: "<"
-                onClicked: root.yearMode ? root.shiftYear(-1) : root.shiftMonth(-1)
-            }
+            id: clockRow
+            anchors.centerIn: parent
+            spacing: Kirigami.Units.largeSpacing
+
             PlasmaComponents.Label {
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
+                visible: !compactMouse.vertical
+                text: Qt.formatDateTime(root.now, "dddd")
+                font.family: root.panelFontFamily
+                font.pointSize: root.panelFontSize
                 font.bold: true
-                color: root.monthColor
-                font.family: "monospace"
-                text: root.yearMode
-                      ? root.shownYear
-                      : root.monthName(root.shownYear, root.shownMonth) + " " + root.shownYear
             }
-            PlasmaComponents.ToolButton {
-                text: ">"
-                onClicked: root.yearMode ? root.shiftYear(1) : root.shiftMonth(1)
+
+            RowLayout {
+                visible: !compactMouse.vertical
+                spacing: Kirigami.Units.smallSpacing
+
+                Kirigami.Icon {
+                    visible: compactMouse.showThemeIcons
+                    source: "view-calendar-day-symbolic"
+                    implicitWidth: compactMouse.iconSize
+                    implicitHeight: compactMouse.iconSize
+                }
+                PlasmaComponents.Label {
+                    // the glyph needs a Nerd Font
+                    text: (root.nerdFontIcons ? " " : "") + Qt.formatDateTime(root.now, "dd MMMM")
+                    font.family: root.panelFontFamily
+                    font.pointSize: root.panelFontSize
+                    font.bold: true
+                }
+            }
+
+            RowLayout {
+                spacing: Kirigami.Units.smallSpacing
+
+                Kirigami.Icon {
+                    visible: compactMouse.showThemeIcons
+                    source: "clock-symbolic"
+                    implicitWidth: compactMouse.iconSize
+                    implicitHeight: compactMouse.iconSize
+                }
+                PlasmaComponents.Label {
+                    id: timeLabel
+                    text: compactMouse.vertical
+                          ? Qt.formatDateTime(root.now, "HH\nmm")
+                          : (root.nerdFontIcons ? " " : "") + root.timeText()
+                    horizontalAlignment: Text.AlignHCenter
+                    font.family: root.panelFontFamily
+                    font.pointSize: root.panelFontSize
+                    font.bold: true
+                }
             }
         }
 
-        GridLayout {
-            visible: !root.yearMode
-            columns: 7
-            Layout.fillWidth: true
-            Repeater {
-                model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+        // The popup closes itself when the panel is pressed; without this the click would reopen it.
+        onPressed: wasExpanded = root.expanded
+        onClicked: mouse => {
+            if (mouse.button === Qt.MiddleButton) {
+                root.goToday();
+                root.expanded = true;
+            } else {
+                root.expanded = !wasExpanded;
+            }
+        }
+        onPressAndHold: root.expanded = !wasExpanded
+    }
+
+    fullRepresentation: Item {
+        id: popup
+
+        readonly property int wantedHeight: Math.max(Kirigami.Units.gridUnit * 12, column.implicitHeight)
+        property int wheelAccum: 0
+
+        Layout.minimumWidth: Kirigami.Units.gridUnit * 14
+        Layout.minimumHeight: wantedHeight
+        Layout.preferredWidth: Kirigami.Units.gridUnit * 16
+        Layout.preferredHeight: wantedHeight
+
+        ColumnLayout {
+            id: column
+            anchors.fill: parent
+            spacing: Kirigami.Units.smallSpacing
+
+            RowLayout {
+                Layout.fillWidth: true
+                PlasmaComponents.ToolButton {
+                    text: "<"
+                    Accessible.name: root.yearMode ? i18n("Previous year") : i18n("Previous month")
+                    onClicked: root.yearMode ? root.shiftYear(-1) : root.shiftMonth(-1)
+                }
                 PlasmaComponents.Label {
-                    required property string modelData
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     font.bold: true
+                    color: root.monthColor
                     font.family: "monospace"
-                    color: root.weekdayColor
-                    text: modelData
+                    text: root.yearMode
+                          ? root.shownYear
+                          : root.monthName(root.shownYear, root.shownMonth) + " " + root.shownYear
+                }
+                PlasmaComponents.ToolButton {
+                    text: ">"
+                    Accessible.name: root.yearMode ? i18n("Next year") : i18n("Next month")
+                    onClicked: root.yearMode ? root.shiftYear(1) : root.shiftMonth(1)
                 }
             }
-        }
 
-        GridLayout {
-            visible: !root.yearMode
-            columns: 7
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            rowSpacing: 2
-            columnSpacing: 2
-            Repeater {
-                model: root.monthCells()
-                delegate: Rectangle {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-                    radius: 4
-                    color: modelData.isToday ? Qt.rgba(0.65, 0.68, 0.78, 0.18) : "transparent"
-                    border.width: modelData.isToday ? 1 : 0
-                    border.color: root.todayColor
-                    opacity: modelData.inMonth ? 1.0 : 0.35
-
+            GridLayout {
+                visible: !root.yearMode
+                columns: 7
+                Layout.fillWidth: true
+                Repeater {
+                    model: 7
                     PlasmaComponents.Label {
-                        anchors.centerIn: parent
+                        required property int index
+                        Layout.fillWidth: true
+                        // equal columns, whatever the name lengths
+                        Layout.preferredWidth: 1
+                        horizontalAlignment: Text.AlignHCenter
                         font.bold: true
                         font.family: "monospace"
-                        color: modelData.isToday ? root.todayColor : root.dayColor
-                        text: modelData.day
+                        color: root.weekdayColor
+                        text: Qt.locale().dayName((root.firstDayOfWeek + index) % 7, Locale.ShortFormat)
                     }
                 }
             }
-        }
 
-        GridLayout {
-            visible: root.yearMode
-            columns: 3
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            rowSpacing: 4
-            columnSpacing: 4
-            Repeater {
-                model: 12
-                delegate: Rectangle {
-                    required property int index
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 44
-                    radius: 4
-                    color: (root.shownMonth === index
-                            && root.shownYear === root.now.getFullYear()
-                            && root.now.getMonth() === index) ? Qt.rgba(0.65, 0.68, 0.78, 0.18) : "transparent"
-                    border.width: root.shownMonth === index ? 1 : 0
-                    border.color: root.monthColor
+            GridLayout {
+                visible: !root.yearMode
+                columns: 7
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                rowSpacing: 2
+                columnSpacing: 2
+                Repeater {
+                    model: root.monthCells()
+                    delegate: Rectangle {
+                        id: dayCell
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: Math.round(Kirigami.Units.gridUnit * 1.5)
+                        radius: 4
+                        color: dayCell.modelData.isToday ? root.todayBackground : "transparent"
+                        border.width: dayCell.modelData.isToday ? 1 : 0
+                        border.color: root.todayBorderColor
 
-                    property bool isCurrentMonth: root.now.getFullYear() === root.shownYear && root.now.getMonth() === index
-
-                    PlasmaComponents.Label {
-                        anchors.centerIn: parent
-                        font.bold: true
-                        font.family: "monospace"
-                        color: parent.isCurrentMonth ? root.todayColor : root.monthColor
-                        text: root.monthName(root.shownYear, parent.index)
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        onClicked: {
-                            root.shownMonth = index;
-                            root.yearMode = false;
+                        PlasmaComponents.Label {
+                            anchors.centerIn: parent
+                            font.bold: true
+                            font.family: "monospace"
+                            color: dayCell.modelData.isToday ? root.todayColor
+                                 : dayCell.modelData.inMonth ? root.dayColor : root.otherDayColor
+                            text: dayCell.modelData.day
                         }
                     }
                 }
             }
-        }
 
-        PlasmaComponents.Label {
-            Layout.fillWidth: true
-            horizontalAlignment: Text.AlignHCenter
-            opacity: 0.5
-            font.pointSize: 8
-            text: "scroll: change month • right-click: month/year"
+            GridLayout {
+                visible: root.yearMode
+                columns: 3
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                rowSpacing: 4
+                columnSpacing: 4
+                Repeater {
+                    model: 12
+                    delegate: Rectangle {
+                        id: monthCell
+                        required property int index
+                        readonly property bool isCurrentMonth: root.todayYear === root.shownYear
+                                                               && root.todayMonth === index
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: Math.round(Kirigami.Units.gridUnit * 2.5)
+                        radius: 4
+                        color: monthCell.isCurrentMonth ? root.todayBackground : "transparent"
+                        border.width: root.shownMonth === monthCell.index ? 1 : 0
+                        border.color: root.todayBorderColor
+
+                        PlasmaComponents.Label {
+                            anchors.centerIn: parent
+                            font.bold: true
+                            font.family: "monospace"
+                            color: monthCell.isCurrentMonth ? root.todayColor : root.monthColor
+                            text: root.monthName(root.shownYear, monthCell.index)
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: {
+                                root.shownMonth = monthCell.index;
+                                root.yearMode = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                opacity: 0.5
+                font: Kirigami.Theme.smallFont
+                text: root.yearMode ? i18n("Scroll: change year • Right-click: month view")
+                                    : i18n("Scroll: change month • Right-click: year view")
+            }
         }
 
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.RightButton
-            propagateComposedEvents: true
-            onClicked: (mouse) => {
-                if (mouse.button === Qt.RightButton) {
-                    root.toggleMode();
-                    mouse.accepted = true;
-                } else {
-                    mouse.accepted = false;
-                }
-            }
-            onWheel: (wheel) => {
-                if (root.yearMode) {
-                    root.shiftYear(wheel.angleDelta.y > 0 ? -1 : 1);
-                } else {
-                    root.shiftMonth(wheel.angleDelta.y > 0 ? -1 : 1);
+            onClicked: root.toggleMode()
+            onWheel: wheel => {
+                // One step per full notch, so touchpads don't race through months.
+                popup.wheelAccum += wheel.angleDelta.y;
+                while (Math.abs(popup.wheelAccum) >= 120) {
+                    const step = popup.wheelAccum > 0 ? -1 : 1;
+                    popup.wheelAccum += step * 120;
+                    if (root.yearMode) {
+                        root.shiftYear(step);
+                    } else {
+                        root.shiftMonth(step);
+                    }
                 }
             }
         }

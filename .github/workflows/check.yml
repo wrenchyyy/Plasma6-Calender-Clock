@@ -1,0 +1,27 @@
+name: Check
+
+# Validates the package metadata and lints the QML on every push and PR.
+# Also called by release.yml before a release is built.
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # qmllint needs the Plasma 6 QML modules to resolve the widget's imports.
+    container: fedora:latest
+    steps:
+      - name: Install tools
+        run: dnf -y install python3 qt6-qtdeclarative-devel libplasma kf6-kirigami kf6-kcmutils
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Run checks
+        run: ./check.sh

@@ -10,11 +10,11 @@
         ],
         "Category": "Utilities",
         "Description": "Panel clock with a month/year calendar popup.",
-        "Icon": "/icons/calenderclock.svg",
+        "Icon": "com.calenderclock",
         "Id": "com.calenderclock",
         "License": "MIT",
         "Name": "Calender Clock",
-        "Version": "1.0",
+        "Version": "1.1",
         "Website": "https://github.com/wrenchyyy/Plasma6-Calender-Clock"
     }
 }

@@ -7,13 +7,16 @@ popup.
 ## Features
 
 - Lives in the panel: `Tuesday   15 September   18:05`, ideal for a top bar
+  (a vertical panel shows the time only)
 - Calendar popup: month view with today highlighted, plus a year view
   (12 months in 3 columns)
 - Scroll changes month, right-click toggles month/year mode
-- Colors: `#a6adc8` months/weekdays/today, `#555869` days, monospace
+- Follows your Plasma color scheme, or the original fixed palette
+  (`#a6adc8` months/weekdays/today, `#555869` days) if you prefer it
+- Week start and weekday names follow your region settings
 - Left-click the panel icon to open the calendar, middle-click to jump to today
-- Double-click (or press-and-hold) to open the expanded view
 - Custom panel font: pick any font installed on your system, plus size
+- Panel icons from your icon theme, or Nerd Font glyphs
 - Tooltip with the full date/time plus calendar hint
 - Right-click context actions: Today and Show month/year
 
@@ -21,8 +24,10 @@ popup.
 
 KDE Plasma 6.
 
-A Nerd Font is needed for the panel icons. Pick any font you like from
-[Nerd Fonts](https://github.com/ryanoasis/nerd-fonts), then select it in the widget's font settings.
+The panel icons come from your icon theme by default. If you would rather
+have Nerd Font glyphs, pick a font from
+[Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) in the widget's font
+settings and turn on **Use Nerd Font glyphs**.
 
 ## Install
 
@@ -44,12 +49,13 @@ Then add it to your bar:
 2. Search **Calender Clock**, drag it onto the panel
 
 To update after pulling new changes, just run `./install.sh` again.
+To remove the widget and its icon, run `./install.sh --uninstall`.
 
 ## Usage
 
 - **Left-click** the panel icon: open / close the calendar popup
 - **Middle-click** the panel icon: jump back to today (and open the popup)
-- **Double-click** (or press-and-hold): open the expanded calendar view
+- **Press-and-hold** the panel icon: same as left-click
 - **Right-click**: standard widget menu plus Today and Show month/year actions,
   and **Configure…** for settings
 - Inside the popup: **scroll** changes month/year, **right-click** toggles
@@ -62,7 +68,12 @@ Right-click the widget → **Configure…**:
 - **Panel font** — **Choose…** opens the system font dialog listing every font on
   your PC; pick a family and size, or **Default** to go back to system monospace.
   The choice applies to the panel clock text. (The calendar popup stays
-  monospace calendar popup.)
+  monospace.)
+- **Panel icons** — tick **Use Nerd Font glyphs** to draw the calendar and
+  clock icons with your panel font instead of the icon theme. The panel font
+  must be a Nerd Font, otherwise the glyphs show as empty boxes.
+- **Calendar colors** — **Follow the Plasma color scheme** is on by default.
+  Turn it off for the original fixed palette, which is made for dark themes.
 
 ## Project structure
 
@@ -73,13 +84,14 @@ Right-click the widget → **Configure…**:
 │   └── contents/
 │       ├── ui/
 │       │   ├── main.qml           # Clock + panel/popup calendar UI
-│       │   └── configGeneral.qml  # Settings page (font picker)
+│       │   └── configGeneral.qml  # Settings page (font, icons, colors)
 │       ├── config/
 │       │   ├── main.xml           # Config key definitions + defaults
 │       │   └── config.qml         # Registers the settings page
 │       └── icons/
-│           └── calenderclock.svg  # Widget icon (browser + About page)
-├── install.sh                     # Installs/updates the widget via kpackagetool6
+│           └── calenderclock.svg  # Widget icon, copied into the icon theme by install.sh
+├── install.sh                     # Installs/updates/removes the widget via kpackagetool6
+├── check.sh                       # Validates metadata and lints the QML (also run by CI)
 ```
 
 ## License
