@@ -2,6 +2,18 @@
 <kcfg xmlns="http://www.kde.org/standards/kcfg/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
   <kcfgfile name=""/>
   <group name="General">
+    <entry name="showWeekday" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showDate" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showTime" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="language" type="String">
+      <default></default>
+    </entry>
     <entry name="panelFontFamily" type="String">
       <default>monospace</default>
     </entry>

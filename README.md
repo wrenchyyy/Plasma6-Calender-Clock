@@ -10,12 +10,14 @@ popup.
 
 - Lives in the panel: `Tuesday   15 September   18:05`, ideal for a top bar
   (a vertical panel shows the time only)
+- Choose what the panel shows: weekday, date and time can each be turned off
 - Calendar popup: month view with today highlighted, plus a year view
   (12 months in 3 columns)
 - Scroll changes month, right-click toggles month/year mode
 - Follows your Plasma color scheme, or the original fixed palette
   (`#a6adc8` months/weekdays/today, `#555869` days) if you prefer it
-- Week start and weekday names follow your region settings
+- Date language of your choice, or the system language; the week start
+  follows your region settings
 - Left-click the panel icon to open the calendar, middle-click to jump to today
 - Custom panel font: pick any font installed on your system, plus size
 - Panel icons from your icon theme, or Nerd Font glyphs
@@ -68,6 +70,13 @@ To remove the widget and its icon, run `./install.sh --uninstall`.
 
 Right-click the widget → **Configure…**:
 
+- **Show in panel** — tick any of **Weekday**, **Date** and **Time**. The last
+  one ticked stays on, so the panel is never empty. A vertical panel always
+  shows the time only.
+- **Date language** — the language of the weekday names, month names and
+  digits, in the panel and in the calendar. **System default** follows your
+  system language; pick any other one to use it whatever your system is set
+  to. The widget's own menus and hints stay in English.
 - **Panel font** — **Choose…** opens the system font dialog listing every font on
   your PC; pick a family and size, or **Default** to go back to system monospace.
   The choice applies to the panel clock text. (The calendar popup stays

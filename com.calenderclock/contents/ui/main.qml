@@ -17,6 +17,10 @@ PlasmoidItem {
                                          : Kirigami.Theme.defaultFont.pointSize
     readonly property bool nerdFontIcons: Plasmoid.configuration.nerdFontIcons
     readonly property bool themeColors: Plasmoid.configuration.useThemeColors
+    readonly property bool showWeekday: Plasmoid.configuration.showWeekday
+    readonly property bool showDate: Plasmoid.configuration.showDate
+    // With everything switched off the time stays, so the panel is never empty.
+    readonly property bool showTime: Plasmoid.configuration.showTime || (!showWeekday && !showDate)
 
     readonly property color monthColor: themeColors ? Kirigami.Theme.textColor : "#a6adc8"
     readonly property color weekdayColor: themeColors ? Kirigami.Theme.textColor : "#a6adc8"
@@ -36,7 +40,11 @@ PlasmoidItem {
     property int shownMonth: todayMonth
     property bool yearMode: false
 
-    // 0 = Sunday, like Date.getDay()
+    // An empty language follows the system. The chosen one sets names and digits only.
+    readonly property string language: Plasmoid.configuration.language
+    readonly property var dateLocale: language ? Qt.locale(language) : Qt.locale()
+
+    // 0 = Sunday, like Date.getDay(). The week start stays with the system region.
     readonly property int firstDayOfWeek: Qt.locale().firstDayOfWeek
 
     function refresh() {
@@ -65,12 +73,18 @@ PlasmoidItem {
 
     onExpandedChanged: root.refresh()
 
+    // Qt.formatDateTime() with a format string always gives English names and
+    // digits, so every date goes through dateLocale instead.
     function timeText() {
-        return Qt.formatDateTime(root.now, "HH:mm");
+        return root.now.toLocaleTimeString(root.dateLocale, "HH:mm");
     }
 
-    function monthName(y, m) {
-        return Qt.formatDateTime(new Date(y, m, 1), "MMMM");
+    function monthName(m) {
+        return root.dateLocale.standaloneMonthName(m, Locale.LongFormat);
+    }
+
+    function yearText(y) {
+        return new Date(y, 0, 1).toLocaleDateString(root.dateLocale, "yyyy");
     }
 
     function shiftMonth(delta) {
@@ -124,8 +138,8 @@ PlasmoidItem {
 
     preferredRepresentation: compactRepresentation
 
-    toolTipMainText: Qt.formatDateTime(root.now, "dddd dd MMMM  HH:mm")
-    toolTipSubText: root.monthName(root.shownYear, root.shownMonth) + " " + root.shownYear
+    toolTipMainText: root.now.toLocaleString(root.dateLocale, "dddd dd MMMM  HH:mm")
+    toolTipSubText: root.monthName(root.shownMonth) + " " + root.yearText(root.shownYear)
         + "\n" + i18n("Left-click: open calendar • Middle-click: today")
 
     Plasmoid.contextualActions: [
@@ -168,15 +182,15 @@ PlasmoidItem {
             spacing: Kirigami.Units.largeSpacing
 
             PlasmaComponents.Label {
-                visible: !compactMouse.vertical
-                text: Qt.formatDateTime(root.now, "dddd")
+                visible: root.showWeekday && !compactMouse.vertical
+                text: root.now.toLocaleDateString(root.dateLocale, "dddd")
                 font.family: root.panelFontFamily
                 font.pointSize: root.panelFontSize
                 font.bold: true
             }
 
             RowLayout {
-                visible: !compactMouse.vertical
+                visible: root.showDate && !compactMouse.vertical
                 spacing: Kirigami.Units.smallSpacing
 
                 Kirigami.Icon {
@@ -187,7 +201,7 @@ PlasmoidItem {
                 }
                 PlasmaComponents.Label {
                     // the glyph needs a Nerd Font
-                    text: (root.nerdFontIcons ? " " : "") + Qt.formatDateTime(root.now, "dd MMMM")
+                    text: (root.nerdFontIcons ? " " : "") + root.now.toLocaleDateString(root.dateLocale, "dd MMMM")
                     font.family: root.panelFontFamily
                     font.pointSize: root.panelFontSize
                     font.bold: true
@@ -195,6 +209,7 @@ PlasmoidItem {
             }
 
             RowLayout {
+                visible: root.showTime || compactMouse.vertical
                 spacing: Kirigami.Units.smallSpacing
 
                 Kirigami.Icon {
@@ -206,7 +221,7 @@ PlasmoidItem {
                 PlasmaComponents.Label {
                     id: timeLabel
                     text: compactMouse.vertical
-                          ? Qt.formatDateTime(root.now, "HH\nmm")
+                          ? root.now.toLocaleTimeString(root.dateLocale, "HH\nmm")
                           : (root.nerdFontIcons ? " " : "") + root.timeText()
                     horizontalAlignment: Text.AlignHCenter
                     font.family: root.panelFontFamily
@@ -259,8 +274,8 @@ PlasmoidItem {
                     color: root.monthColor
                     font.family: "monospace"
                     text: root.yearMode
-                          ? root.shownYear
-                          : root.monthName(root.shownYear, root.shownMonth) + " " + root.shownYear
+                          ? root.yearText(root.shownYear)
+                          : root.monthName(root.shownMonth) + " " + root.yearText(root.shownYear)
                 }
                 PlasmaComponents.ToolButton {
                     text: ">"
@@ -280,11 +295,15 @@ PlasmoidItem {
                         Layout.fillWidth: true
                         // equal columns, whatever the name lengths
                         Layout.preferredWidth: 1
+                        // some languages have long short names: shrink those to fit the column
+                        fontSizeMode: Text.HorizontalFit
+                        minimumPointSize: 5
+                        elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
                         font.bold: true
                         font.family: "monospace"
                         color: root.weekdayColor
-                        text: Qt.locale().dayName((root.firstDayOfWeek + index) % 7, Locale.ShortFormat)
+                        text: root.dateLocale.dayName((root.firstDayOfWeek + index) % 7, Locale.ShortFormat)
                     }
                 }
             }
@@ -315,7 +334,7 @@ PlasmoidItem {
                             font.family: "monospace"
                             color: dayCell.modelData.isToday ? root.todayColor
                                  : dayCell.modelData.inMonth ? root.dayColor : root.otherDayColor
-                            text: dayCell.modelData.day
+                            text: dayCell.modelData.day.toLocaleString(root.dateLocale, "f", 0)
                         }
                     }
                 }
@@ -348,7 +367,7 @@ PlasmoidItem {
                             font.bold: true
                             font.family: "monospace"
                             color: monthCell.isCurrentMonth ? root.todayColor : root.monthColor
-                            text: root.monthName(root.shownYear, monthCell.index)
+                            text: root.monthName(monthCell.index)
                         }
                         MouseArea {
                             anchors.fill: parent

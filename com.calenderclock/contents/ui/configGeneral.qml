@@ -10,18 +10,83 @@ import org.kde.kcmutils as KCM
 KCM.SimpleKCM {
     id: page
 
+    property alias cfg_showWeekday: showWeekday.checked
+    property alias cfg_showDate: showDate.checked
+    property alias cfg_showTime: showTime.checked
+    property string cfg_language
     property string cfg_panelFontFamily
     property int cfg_panelFontSize
     property alias cfg_nerdFontIcons: nerdFontIcons.checked
     property alias cfg_useThemeColors: useThemeColors.checked
 
     // Plasma hands these to every config page.
+    property bool cfg_showWeekdayDefault
+    property bool cfg_showDateDefault
+    property bool cfg_showTimeDefault
+    property string cfg_languageDefault
     property string cfg_panelFontFamilyDefault
     property int cfg_panelFontSizeDefault
     property bool cfg_nerdFontIconsDefault
     property bool cfg_useThemeColorsDefault
 
+    // Each language is listed under its own name, so it can be found whatever
+    // the system language is. That is why these names are not translated.
+    readonly property var languages: [
+        { "code": "", "label": i18n("System default") },
+        { "code": "id", "label": "Bahasa Indonesia" },
+        { "code": "de", "label": "Deutsch" },
+        { "code": "en", "label": "English" },
+        { "code": "es", "label": "Español" },
+        { "code": "fr", "label": "Français" },
+        { "code": "it", "label": "Italiano" },
+        { "code": "nl", "label": "Nederlands" },
+        { "code": "pl", "label": "Polski" },
+        { "code": "pt", "label": "Português" },
+        { "code": "vi", "label": "Tiếng Việt" },
+        { "code": "tr", "label": "Türkçe" },
+        { "code": "ru", "label": "Русский" },
+        { "code": "uk", "label": "Українська" },
+        { "code": "ur", "label": "اردو" },
+        { "code": "ar", "label": "العربية" },
+        { "code": "fa", "label": "فارسی" },
+        { "code": "ne", "label": "नेपाली" },
+        { "code": "hi", "label": "हिन्दी" },
+        { "code": "bn", "label": "বাংলা" }
+    ]
+
+    onCfg_languageChanged: languageBox.currentIndex = languageBox.indexOfValue(page.cfg_language)
+
     Kirigami.FormLayout {
+        // The last ticked box cannot be unticked, so the panel is never empty.
+        CheckBox {
+            id: showWeekday
+            Kirigami.FormData.label: i18n("Show in panel:")
+            text: i18n("Weekday")
+            enabled: !checked || showDate.checked || showTime.checked
+        }
+
+        CheckBox {
+            id: showDate
+            text: i18n("Date")
+            enabled: !checked || showWeekday.checked || showTime.checked
+        }
+
+        CheckBox {
+            id: showTime
+            text: i18n("Time")
+            enabled: !checked || showWeekday.checked || showDate.checked
+        }
+
+        ComboBox {
+            id: languageBox
+            Kirigami.FormData.label: i18n("Date language:")
+            model: page.languages
+            textRole: "label"
+            valueRole: "code"
+            onActivated: page.cfg_language = currentValue
+            Component.onCompleted: currentIndex = indexOfValue(page.cfg_language)
+        }
+
         RowLayout {
             Kirigami.FormData.label: i18n("Panel font:")
             Label {
